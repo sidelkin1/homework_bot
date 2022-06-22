@@ -2,12 +2,13 @@ import logging
 import os
 import sys
 import time
+from http import HTTPStatus
 
 import requests
 import telegram
 from dotenv import load_dotenv
 
-from exceptions import (APIKeyDoesntExist, EndpointAccessProblem,
+from exceptions import (APIUnknownFormat, EndpointAccessProblem,
                         TelegramBotError)
 
 load_dotenv()
@@ -52,10 +53,11 @@ def send_message(bot, message):
 
 def get_api_answer(current_timestamp):
     """Делает запрос к единственному эндпоинту API-сервиса."""
+    logger.info(f"Делаем запрос к сервису API '{ENDPOINT}'")
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
     response = requests.get(ENDPOINT, headers=HEADERS, params=params)
-    if response.status_code != 200:
+    if response.status_code != HTTPStatus.OK:
         message = (f"Эндпоинт {response.url} недоступен. "
                    f"Код ответа API: {response.status_code}")
         raise EndpointAccessProblem(message)
@@ -64,16 +66,26 @@ def get_api_answer(current_timestamp):
 
 def check_response(response):
     """Проверяет ответ API на корректность."""
+    logger.info('Проверяем ответ API на корректность')
     if not isinstance(response, dict):
+        # TODO Вариант ниже не проходит тесты, оставил старый вариант
+        # message = (
+        #     f"Неизвестный тип ответа '{type(response)}'."
+        #     f"Ожидается словарь"
+        # )
+        # raise APIUnknownFormat(message)
         response = response[0]
     for key in ['homeworks', 'current_date']:
         if key not in response:
             message = f"Отсутствует ожидаемый ключ '{key}' в ответе API"
-            raise APIKeyDoesntExist(message)
+            raise APIUnknownFormat(message)
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
-        message = f"Неизвестный тип списка работ {type(homeworks)}"
-        raise APIKeyDoesntExist(message)
+        message = (
+            f"Неизвестный тип работ '{type(homeworks)}'."
+            f"Ожидается простой список."
+        )
+        raise APIUnknownFormat(message)
     return homeworks
 
 
@@ -82,11 +94,17 @@ def parse_status(homework):
     for key in ['homework_name', 'status']:
         if key not in homework:
             message = f"Отсутствует ожидаемый ключ '{key}' в работе"
+            # TODO Вариант ниже не проходит тесты,
+            # поэтому оставил просто вывод в лог
+            # raise HomeworkUnknownFormat(message)
             logger.error(message)
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
     if homework_status not in HOMEWORK_STATUSES:
         message = f"Неизвестный статус работы '{homework_status}'"
+        # TODO Вариант ниже не проходит тесты,
+        # поэтому оставил просто вывод в лог
+        # raise HomeworkUnknownFormat(message)
         logger.error(message)
     verdict = HOMEWORK_STATUSES[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
@@ -94,29 +112,19 @@ def parse_status(homework):
 
 def check_tokens():
     """Проверяет доступность переменных окружения."""
-    result = True
-    tokens_dict = {
-        'PRACTICUM_TOKEN': PRACTICUM_TOKEN,
-        'TELEGRAM_TOKEN': TELEGRAM_TOKEN,
-        'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID,
-    }
-    for name, token in tokens_dict.items():
-        if not token:
-            message = f"Отсутствует переменная окружения: '{name}'"
-            logger.critical(message)
-            result = False
-    return result
+    return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
-        print('Программа принудительно остановлена.')
-        sys.exit(1)
+        logger.critical('Отсутствует переменная окружения!')
+        sys.exit('Программа принудительно остановлена.')
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time())
-    old_error = None
+    current_report = {}
+    prev_report = {}
 
     while True:
         try:
@@ -127,18 +135,23 @@ def main():
             else:
                 for homework in homeworks:
                     message = parse_status(homework)
-                    send_message(bot, message)
-
+                    current_report[homework['homework_name']] = message
+                if current_report != prev_report:
+                    for message in current_report.values():
+                        send_message(bot, message)
+                    prev_report = current_report.copy()
             current_timestamp = int(time.time())
-            time.sleep(RETRY_TIME)
-
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            if (not ((old_error == message)
-                     or isinstance(error, TelegramBotError))):
+            current_report['error'] = message
+            if (
+                (current_report != prev_report)
+                and not isinstance(error, TelegramBotError)
+            ):
                 send_message(bot, message)
-                old_error = message
+                prev_report = current_report.copy()
             logger.error(message)
+        finally:
             time.sleep(RETRY_TIME)
 
 
