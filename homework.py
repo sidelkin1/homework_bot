@@ -8,8 +8,7 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-from exceptions import (APIUnknownFormat, EndpointAccessProblem,
-                        TelegramBotError)
+from exceptions import EndpointAccessProblem, TelegramBotError
 
 load_dotenv()
 
@@ -76,14 +75,14 @@ def check_response(response):
     for key in ['homeworks', 'current_date']:
         if key not in response:
             message = f"Отсутствует ожидаемый ключ '{key}' в ответе API"
-            raise APIUnknownFormat(message)
+            raise KeyError(message)
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
         message = (
             f"Неизвестный тип работ '{type(homeworks)}'. "
             f"Ожидается простой список."
         )
-        raise APIUnknownFormat(message)
+        raise TypeError(message)
     return homeworks
 
 
