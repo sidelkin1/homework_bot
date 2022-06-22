@@ -10,12 +10,6 @@ class APIUnknownFormat(Exception):
     pass
 
 
-class HomeworkUnknownFormat(Exception):
-    """Неизвестный формат домашней работы."""
-
-    pass
-
-
 class TelegramBotError(Exception):
     """Ошибка при отправке в Telegram."""
 

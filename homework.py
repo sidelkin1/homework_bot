@@ -68,13 +68,11 @@ def check_response(response):
     """Проверяет ответ API на корректность."""
     logger.info('Проверяем ответ API на корректность')
     if not isinstance(response, dict):
-        # TODO Вариант ниже не проходит тесты, оставил старый вариант
-        # message = (
-        #     f"Неизвестный тип ответа '{type(response)}'."
-        #     f"Ожидается словарь"
-        # )
-        # raise APIUnknownFormat(message)
-        response = response[0]
+        message = (
+            f"Неизвестный тип ответа '{type(response)}'. "
+            f"Ожидается словарь"
+        )
+        raise TypeError(message)
     for key in ['homeworks', 'current_date']:
         if key not in response:
             message = f"Отсутствует ожидаемый ключ '{key}' в ответе API"
@@ -82,7 +80,7 @@ def check_response(response):
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
         message = (
-            f"Неизвестный тип работ '{type(homeworks)}'."
+            f"Неизвестный тип работ '{type(homeworks)}'. "
             f"Ожидается простой список."
         )
         raise APIUnknownFormat(message)
@@ -94,18 +92,12 @@ def parse_status(homework):
     for key in ['homework_name', 'status']:
         if key not in homework:
             message = f"Отсутствует ожидаемый ключ '{key}' в работе"
-            # TODO Вариант ниже не проходит тесты,
-            # поэтому оставил просто вывод в лог
-            # raise HomeworkUnknownFormat(message)
-            logger.error(message)
+            raise KeyError(message)
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
     if homework_status not in HOMEWORK_STATUSES:
         message = f"Неизвестный статус работы '{homework_status}'"
-        # TODO Вариант ниже не проходит тесты,
-        # поэтому оставил просто вывод в лог
-        # raise HomeworkUnknownFormat(message)
-        logger.error(message)
+        raise KeyError(message)
     verdict = HOMEWORK_STATUSES[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
