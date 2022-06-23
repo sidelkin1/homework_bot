@@ -92,8 +92,8 @@ def parse_status(homework):
         if key not in homework:
             message = f"Отсутствует ожидаемый ключ '{key}' в работе"
             raise KeyError(message)
-    homework_name = homework.get('homework_name')
-    homework_status = homework.get('status')
+    homework_name = homework['homework_name']
+    homework_status = homework['status']
     if homework_status not in HOMEWORK_STATUSES:
         message = f"Неизвестный статус работы '{homework_status}'"
         raise KeyError(message)
