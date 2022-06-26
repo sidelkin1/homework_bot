@@ -44,10 +44,15 @@ def send_message(bot, message):
             text=message,
         )
     except Exception as error:
-        msg = f"Ошибка '{error}' при отправке в Telegram"
-        raise TelegramBotError(msg) from error
+        raise TelegramBotError(error) from error
     else:
         logger.info(f"Бот отправил сообщение '{message}'")
+
+
+def send_messages(bot, messages):
+    """Отправляет несколько сообщений в Telegram чат."""
+    for message in messages:
+        send_message(bot, message)
 
 
 def get_api_answer(current_timestamp):
@@ -57,9 +62,7 @@ def get_api_answer(current_timestamp):
     params = {'from_date': timestamp}
     response = requests.get(ENDPOINT, headers=HEADERS, params=params)
     if response.status_code != HTTPStatus.OK:
-        message = (f"Эндпоинт {response.url} недоступен. "
-                   f"Код ответа API: {response.status_code}")
-        raise EndpointAccessProblem(message)
+        raise EndpointAccessProblem(response.url, response.status_code)
     return response.json()
 
 
@@ -80,7 +83,7 @@ def check_response(response):
     if not isinstance(homeworks, list):
         message = (
             f"Неизвестный тип работ '{type(homeworks)}'. "
-            f"Ожидается простой список."
+            f"Ожидается простой список"
         )
         raise TypeError(message)
     return homeworks
@@ -120,17 +123,15 @@ def main():
     while True:
         try:
             response = get_api_answer(current_timestamp)
-            homeworks = check_response(response)
-            if not homeworks:
-                logger.debug('В ответе отсутствуют новые статусы')
-            else:
+            if homeworks := check_response(response):
                 for homework in homeworks:
                     message = parse_status(homework)
                     current_report[homework['homework_name']] = message
                 if current_report != prev_report:
-                    for message in current_report.values():
-                        send_message(bot, message)
+                    send_messages(bot, current_report.values())
                     prev_report = current_report.copy()
+            else:
+                logger.debug('В ответе отсутствуют новые статусы')
             current_timestamp = int(time.time())
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
