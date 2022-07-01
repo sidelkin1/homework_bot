@@ -55,6 +55,15 @@ def send_messages(bot, messages):
         send_message(bot, message)
 
 
+def send_error(bot, message):
+    """Отправляет сообщение об ошибке в Telegram чат."""
+    try:
+        send_message(bot, message)
+    except Exception as error:
+        message = f'Сбой в работе программы: {error}'
+        logger.error(message)
+
+
 def get_api_answer(current_timestamp):
     """Делает запрос к единственному эндпоинту API-сервиса."""
     logger.info(f"Делаем запрос к сервису API '{ENDPOINT}'")
@@ -135,14 +144,12 @@ def main():
             current_timestamp = int(time.time())
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            current_report['error'] = message
-            if (
-                (current_report != prev_report)
-                and not isinstance(error, TelegramBotError)
-            ):
-                send_message(bot, message)
-                prev_report = current_report.copy()
             logger.error(message)
+            if not isinstance(error, TelegramBotError):
+                current_report['error'] = message
+                if current_report != prev_report:
+                    send_error(bot, message)
+                    prev_report = current_report.copy()
         finally:
             time.sleep(RETRY_TIME)
 

@@ -1,7 +1,7 @@
 class EndpointAccessProblem(Exception):
     """Проблемы с доступом к эндпоинту."""
 
-    MESSAGE = "Эндпоинт '{0}' недоступен. Код ответа API: '{1}'"
+    MESSAGE = "Эндпоинт '{}' недоступен. Код ответа API: '{}'"
 
     def __init__(self, url, status_code):
         """Инициализация."""
@@ -11,7 +11,7 @@ class EndpointAccessProblem(Exception):
 class TelegramBotError(Exception):
     """Ошибка при отправке в Telegram."""
 
-    MESSAGE = "Ошибка '{0}' при отправке в Telegram"
+    MESSAGE = "Ошибка '{}' при отправке в Telegram"
 
     def __init__(self, error):
         """Инициализация."""
